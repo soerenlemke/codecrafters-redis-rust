@@ -58,7 +58,7 @@ fn parse_command(input: &str) -> Option<String> {
 
     match command {
         "ECHO" => {
-            Option::from("$3\r\nhey\r\n".to_string())
+            Some(format!("$3\r\n{}\r\n", command))
         }
 
         _ => None,
