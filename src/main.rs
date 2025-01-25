@@ -54,13 +54,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn parse_command(input: &str) -> Option<String> {
     let mut parts = input.split_whitespace();
     let command = parts.next()?;
-    let args = parts.next()?;
 
-    match command {
+    match command.to_uppercase().as_str() { // Redis-Kommandos sind case-insensitive
         "ECHO" => {
-            Some(format!("$3\r\n{}\r\n", args))
-        }
+            let args: Vec<_> = parts.collect();
+            if args.is_empty() {
+                return None;
+            }
 
+            let message = args.join(" ");
+            Some(format!("${}\r\n{}\r\n", message.len(), message))
+        }
         _ => None,
     }
 }
