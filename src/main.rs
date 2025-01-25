@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{Shutdown, TcpListener, TcpStream};
 
 fn main() {
     println!("Logs from your program will appear here!");
@@ -11,20 +11,40 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(mut _stream) => {
-                let mut buffer = [0; 512];
-                match _stream.read(&mut buffer) {
-                    Ok(n) => {
-                        println!("{}", String::from_utf8_lossy(&buffer[..n]));
-                        _stream.write_all(b"+PONG\r\n").unwrap();
-                    }
-                    Err(e) => {
-                        println!("{}", e);
-                    }
-                };
+                handle_client(&mut _stream);
             }
             Err(e) => {
                 println!("error: {}", e);
             }
         }
     }
+}
+
+fn handle_client(stream: &mut TcpStream) {
+    let mut buffer = [0; 512];
+
+    match stream.read(&mut buffer) {
+        Ok(bytes_read) if bytes_read > 0 => {
+            let input = String::from_utf8_lossy(&buffer[..bytes_read]);
+            
+            if input.trim() == "PING" {
+                match stream.write_all(b"+PONG\r\n") {
+                    Ok(_) => {
+                        println!("PONG!");
+                    }
+                    Err(_) => {
+                        stream.shutdown(Shutdown::Both).unwrap();
+                    }
+                };
+            }
+        }
+        Ok(_) => {
+            println!("Client disconnected.");
+        }
+        Err(e) => {
+            println!("error: {}", e);
+        }
+    };
+
+    stream.write_all(b"+PONG\r\n").unwrap();
 }
