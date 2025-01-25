@@ -1,46 +1,36 @@
 #![allow(unused_imports)]
 
-use std::io::{Read, Write};
-use std::net::{Shutdown, TcpListener, TcpStream};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[tokio::main]
-async fn main() {
-    println!("Logs from your program will appear here!");
-
-    let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = TcpListener::bind("127.0.0.1:6379").await?;
 
     loop {
-        for stream in listener.incoming() {
-            match stream {
-                Ok(mut _stream) => {
-                    loop {
-                        handle_client(&mut _stream).await;
+        let (mut socket, _) = listener.accept().await?;
+
+        tokio::spawn(async move {
+            let mut buf = [0; 1024];
+
+            // In a loop, read data from the socket and write the data back.
+            loop {
+                let n = match socket.read(&mut buf).await {
+                    // socket closed
+                    Ok(n) if n == 0 => return,
+                    Ok(n) => n,
+                    Err(e) => {
+                        eprintln!("failed to read from socket; err = {:?}", e);
+                        return;
                     }
-                }
-                Err(e) => {
-                    println!("error: {}", e);
+                };
+
+                // Write the data back
+                if let Err(e) = socket.write_all(&buf[0..n]).await {
+                    eprintln!("failed to write to socket; err = {:?}", e);
+                    return;
                 }
             }
-        }
+        });
     }
-}
-
-async fn handle_client(stream: &mut TcpStream) {
-    let mut buffer = [0; 512];
-
-    match stream.read(&mut buffer) {
-        Ok(bytes_read) if bytes_read > 0 => {
-            let input = String::from_utf8_lossy(&buffer[..bytes_read]);
-
-            if input.trim().contains("PING") {
-                stream.write_all(b"+PONG\r\n").unwrap();
-            }
-        }
-        Ok(_) => {
-            println!("Client disconnected.");
-        }
-        Err(e) => {
-            println!("error: {}", e);
-        }
-    };
 }
