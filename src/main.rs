@@ -9,15 +9,17 @@ async fn main() {
 
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(mut _stream) => {
-                loop {
-                    handle_client(&mut _stream).await;
+    loop {
+        for stream in listener.incoming() {
+            match stream {
+                Ok(mut _stream) => {
+                    loop {
+                        handle_client(&mut _stream).await;
+                    }
                 }
-            }
-            Err(e) => {
-                println!("error: {}", e);
+                Err(e) => {
+                    println!("error: {}", e);
+                }
             }
         }
     }
