@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 
 use std::str;
+use serde_resp::{bulk, ser, RESP};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -57,8 +58,10 @@ fn parse_command(input: &str) -> Option<String> {
 
     match command {
         "ECHO" => {
-            let message = parts.collect::<Vec<_>>().join(" "); // Alle restlichen Teile als Nachricht
-            Some(format!("+{}\r\n", message))
+            let message = parts.collect::<Vec<_>>().join(" ");
+            let obj = bulk!(message.into_bytes().to_vec());
+            let serialized = ser::to_string(&obj).unwrap();
+            Option::from(serialized)
         }
 
         _ => None,
