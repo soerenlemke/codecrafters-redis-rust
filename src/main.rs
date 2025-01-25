@@ -3,7 +3,8 @@
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 
-fn main() {
+#[tokio::main]
+async fn main() {
     println!("Logs from your program will appear here!");
 
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
@@ -12,7 +13,7 @@ fn main() {
         match stream {
             Ok(mut _stream) => {
                 loop {
-                    handle_client(&mut _stream);
+                    handle_client(&mut _stream).await;
                 }
             }
             Err(e) => {
@@ -22,7 +23,7 @@ fn main() {
     }
 }
 
-fn handle_client(stream: &mut TcpStream) {
+async fn handle_client(stream: &mut TcpStream) {
     let mut buffer = [0; 512];
 
     match stream.read(&mut buffer) {
