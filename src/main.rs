@@ -26,7 +26,7 @@ fn handle_client(stream: &mut TcpStream) {
     match stream.read(&mut buffer) {
         Ok(bytes_read) if bytes_read > 0 => {
             let input = String::from_utf8_lossy(&buffer[..bytes_read]);
-            
+
             if input.trim() == "PING" {
                 match stream.write_all(b"+PONG\r\n") {
                     Ok(_) => {
@@ -45,6 +45,4 @@ fn handle_client(stream: &mut TcpStream) {
             println!("error: {}", e);
         }
     };
-
-    stream.write_all(b"+PONG\r\n").unwrap();
 }
