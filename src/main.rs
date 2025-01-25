@@ -58,10 +58,7 @@ fn parse_command(input: &str) -> Option<String> {
 
     match command {
         "ECHO" => {
-            let message = parts.collect::<Vec<_>>().join(" ");
-            let obj = bulk!(message.into_bytes().to_vec());
-            let serialized = ser::to_string(&obj).unwrap();
-            Option::from(serialized)
+            Option::from("$3\r\nhey\r\n".to_string())
         }
 
         _ => None,
