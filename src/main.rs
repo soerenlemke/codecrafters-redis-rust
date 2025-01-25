@@ -11,7 +11,9 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(mut _stream) => {
-                handle_client(&mut _stream);
+                loop {
+                    handle_client(&mut _stream);
+                }
             }
             Err(e) => {
                 println!("error: {}", e);
