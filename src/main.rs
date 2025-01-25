@@ -37,7 +37,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         None => {
                             let error_msg = "-ERR Ungültiges Kommando\r\n";
                             if let Err(e) = socket.write_all(error_msg.as_bytes()).await {
-                                eprintln!("Fehler beim Schreiben der Fehlermeldung: {:?}", e);
                                 return;
                             }
                         }
