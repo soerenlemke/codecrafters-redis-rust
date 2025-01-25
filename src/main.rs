@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 
+use std::str;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -13,11 +14,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::spawn(async move {
             let mut buf = [0; 1024];
 
-            // In a loop, read data from the socket and write the data back.
             loop {
                 let n = match socket.read(&mut buf).await {
-                    // socket closed
-                    Ok(n) if n == 0 => return,
+                    Ok(n) if n == 0 => return, // Connection closed
                     Ok(n) => n,
                     Err(e) => {
                         eprintln!("failed to read from socket; err = {:?}", e);
@@ -25,12 +24,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 };
 
-                // Write the data back
+                if let Ok(input) = str::from_utf8(&buf[..n]) {
+                    let input = input.trim();
+
+                    match parse_command(input) {
+                        Some(response) => {
+                            if let Err(e) = socket.write_all(response.as_bytes()).await {
+                                eprintln!("failed to write to socket; err = {:?}", e);
+                                return;
+                            }
+                        }
+                        None => {
+                            let error_msg = "-ERR Ungültiges Kommando\r\n";
+                            if let Err(e) = socket.write_all(error_msg.as_bytes()).await {
+                                eprintln!("Fehler beim Schreiben der Fehlermeldung: {:?}", e);
+                                return;
+                            }
+                        }
+                    }
+                };
+
                 if let Err(e) = socket.write_all(b"+PONG\r\n").await {
                     eprintln!("failed to write to socket; err = {:?}", e);
                     return;
                 }
             }
         });
+    }
+}
+
+fn parse_command(input: &str) -> Option<String> {
+    let mut parts = input.split_whitespace();
+    let command = parts.next()?;
+
+    match command {
+        "ECHO" => {
+            let message = parts.collect::<Vec<_>>().join(" "); // Alle restlichen Teile als Nachricht
+            Some(format!("+{}\r\n", message))
+        }
+
+        _ => None,
     }
 }
