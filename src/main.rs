@@ -1,7 +1,6 @@
 #![allow(unused_imports)]
 
 use std::str;
-use serde_resp::{bulk, ser, RESP};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -55,10 +54,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn parse_command(input: &str) -> Option<String> {
     let mut parts = input.split_whitespace();
     let command = parts.next()?;
+    let args = parts.next()?;
 
     match command {
         "ECHO" => {
-            Some(format!("$3\r\n{}\r\n", command))
+            Some(format!("$3\r\n{}\r\n", args))
         }
 
         _ => None,
