@@ -67,8 +67,27 @@ fn parse_and_respond(input: &str) -> String {
                                         .to_string(),
                                 }
                             }
+                            "SET" => {
+                                if elements.len() < 2 {
+                                    return "-ERR ECHO braucht eine Argument\r\n".to_string();
+                                }
+                                match &elements[1] {
+                                    Value::BulkString(_arg) => "+OK\r\n".to_string(),
+                                    _ => "-ERR ECHO erwartet eine BulkString-Argument\r\n"
+                                        .to_string(),
+                                }
+                            }
+                            "GET" => {
+                                if elements.len() < 2 {
+                                    return "-ERR ECHO braucht eine Argument\r\n".to_string();
+                                }
+                                match &elements[1] {
+                                    Value::BulkString(_arg) => "$3\r\nbar\r\n".to_string(),
+                                    _ => "-ERR ECHO erwartet eine BulkString-Argument\r\n"
+                                        .to_string(),
+                                }
+                            }
                             other => {
-                                // Unbekanntes Kommando
                                 format!("-ERR Unbekanntes Kommando: {}\r\n", other)
                             }
                         }
