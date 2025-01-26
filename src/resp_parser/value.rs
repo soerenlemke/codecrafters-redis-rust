@@ -1,6 +1,6 @@
 ﻿use nom::branch::alt;
 use nom::bytes::complete::{tag, take, take_while};
-use nom::character::complete::{i32, i64};
+use nom::character::complete::{i32, i64, one_of};
 use nom::combinator::{complete, eof, value, verify};
 use nom::error::{Error, ErrorKind};
 use nom::multi::count;
@@ -18,6 +18,7 @@ pub enum Value<'a> {
     Null,
     Map(HashMap<&'a str, Value<'a>>),
     Set(BTreeSet<Value<'a>>),
+    Boolean(bool),
 }
 
 pub fn parse_message(input: &str) -> IResult<&str, Value> {
@@ -32,6 +33,8 @@ pub fn parse_value(input: &str) -> IResult<&str, Value> {
         parse_integer,
         parse_bulk_string,
         parse_array,
+        parse_null,
+        parse_bool,
     ))(input)
 }
 
@@ -83,6 +86,22 @@ fn parse_array(input: &str) -> IResult<&str, Value> {
 
     let (input, values) = count(parse_value, length as usize)(input)?;
     Ok((input, Value::Array(values)))
+}
+
+fn parse_null(input: &str) -> IResult<&str, Value> {
+    let (input, _) = tag("_\r\n")(input)?;
+    Ok((input, Value::Null))
+}
+
+fn parse_bool(input: &str) -> IResult<&str, Value> {
+    let (input, _) = tag("#")(input)?;
+    let (input, ch) = terminated(one_of("tf"), crlf)(input)?;
+    let value = match ch {
+        't' => true,
+        'f' => false,
+        _ => unreachable!(),
+    };
+    Ok((input, Value::Boolean(value)))
 }
 
 fn crlf(input: &str) -> IResult<&str, &str> {
@@ -205,5 +224,17 @@ mod tests {
                 ])
             ))
         )
+    }
+
+    #[test]
+    fn test_parse_null() {
+        assert_eq!(parse_message("_\r\n"), Ok(("", Value::Null)));
+    }
+
+    #[test]
+    fn test_parse_bool() {
+        assert_eq!(parse_message("#t\r\n"), Ok(("", Value::Boolean(true))));
+        assert_eq!(parse_message("#f\r\n"), Ok(("", Value::Boolean(false))));
+        assert!(parse_message("#x\r\n").is_err());
     }
 }
