@@ -1,5 +1,7 @@
 #![allow(unused_imports)]
 
+mod parser;
+
 use std::str;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -55,7 +57,7 @@ fn parse_command(input: &str) -> Option<String> {
     let mut parts = input.split_whitespace();
     let command = parts.next()?;
 
-    match command.to_uppercase().as_str() { // Redis-Kommandos sind case-insensitive
+    match command {
         "ECHO" => {
             let args: Vec<_> = parts.collect();
             if args.is_empty() {
