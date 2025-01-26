@@ -4,6 +4,7 @@ use nom::character::complete::{i32, i64, one_of};
 use nom::combinator::{complete, eof, value, verify};
 use nom::error::{Error, ErrorKind};
 use nom::multi::count;
+use nom::number::complete::double;
 use nom::sequence::terminated;
 use nom::{error_position, IResult};
 use std::collections::{BTreeSet, HashMap};
@@ -19,6 +20,7 @@ pub enum Value<'a> {
     Map(HashMap<&'a str, Value<'a>>),
     Set(BTreeSet<Value<'a>>),
     Boolean(bool),
+    Double(f64),
 }
 
 pub fn parse_message(input: &str) -> IResult<&str, Value> {
@@ -26,7 +28,7 @@ pub fn parse_message(input: &str) -> IResult<&str, Value> {
     Ok((input, value))
 }
 
-pub fn parse_value(input: &str) -> IResult<&str, Value> {
+fn parse_value(input: &str) -> IResult<&str, Value> {
     alt((
         parse_simple_string,
         parse_error,
@@ -35,6 +37,7 @@ pub fn parse_value(input: &str) -> IResult<&str, Value> {
         parse_array,
         parse_null,
         parse_bool,
+        parse_double,
     ))(input)
 }
 
@@ -102,6 +105,12 @@ fn parse_bool(input: &str) -> IResult<&str, Value> {
         _ => unreachable!(),
     };
     Ok((input, Value::Boolean(value)))
+}
+
+fn parse_double(input: &str) -> IResult<&str, Value> {
+    let (input, _) = tag(",")(input)?;
+    let (input, value) = terminated(double, crlf)(input)?;
+    Ok((input, Value::Double(value)))
 }
 
 fn crlf(input: &str) -> IResult<&str, &str> {
@@ -236,5 +245,18 @@ mod tests {
         assert_eq!(parse_message("#t\r\n"), Ok(("", Value::Boolean(true))));
         assert_eq!(parse_message("#f\r\n"), Ok(("", Value::Boolean(false))));
         assert!(parse_message("#x\r\n").is_err());
+    }
+
+    #[test]
+    fn test_parse_double() {
+        assert_eq!(parse_message(",3.15\r\n"), Ok(("", Value::Double(3.15))));
+        assert_eq!(parse_message(",42\r\n"), Ok(("", Value::Double(42.0))));
+        assert_eq!(
+            parse_message(",-0.123\r\n"),
+            Ok(("", Value::Double(-0.123)))
+        );
+        assert_eq!(parse_message(",1e10\r\n"), Ok(("", Value::Double(1e10))));
+        assert!(parse_message(",abc\r\n").is_err());
+        assert!(parse_message(",3.14\r\nREST\r\n").is_err());
     }
 }
