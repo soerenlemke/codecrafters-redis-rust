@@ -9,7 +9,7 @@ use nom::sequence::terminated;
 use nom::{error_position, IResult};
 use std::collections::{BTreeSet, HashMap};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value<'a> {
     SimpleString(&'a str),
     Error(&'a str),

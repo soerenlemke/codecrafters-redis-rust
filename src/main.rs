@@ -2,9 +2,10 @@
 
 mod resp_parser;
 
+use crate::resp_parser::value::{parse_message, Value};
 use std::str;
-use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,46 +28,69 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 };
 
                 if let Ok(input) = str::from_utf8(&buf[..n]) {
-                    let input = input.trim();
+                    let response = parse_and_respond(input);
 
-                    match parse_command(input) {
-                        Some(response) => {
-                            if let Err(e) = socket.write_all(response.as_bytes()).await {
-                                eprintln!("failed to write to socket; err = {:?}", e);
-                                return;
-                            }
-                        }
-                        None => {
-                            let error_msg = "-ERR Ungültiges Kommando\r\n";
-                            socket.write_all(error_msg.as_bytes()).await.unwrap();
-                            return;
-                        }
+                    if let Err(e) = socket.write_all(response.as_bytes()).await {
+                        eprintln!("failed to write to socket; err = {:?}", e);
+                        return;
                     }
-                };
-
-                if let Err(e) = socket.write_all(b"+PONG\r\n").await {
-                    eprintln!("failed to write to socket; err = {:?}", e);
-                    return;
                 }
             }
         });
     }
 }
 
-fn parse_command(input: &str) -> Option<String> {
-    let mut parts = input.split_whitespace();
-    let command = parts.next()?;
+fn parse_and_respond(input: &str) -> String {
+    match parse_message(input) {
+        Ok((_, value)) => match value {
+            Value::Array(elements) => {
+                if elements.is_empty() {
+                    return "-ERR leeres Kommando\r\n".to_string();
+                }
 
-    match command {
-        "ECHO" => {
-            let args: Vec<_> = parts.collect();
-            if args.is_empty() {
-                return None;
+                let cmd = &elements[0];
+                match cmd {
+                    Value::BulkString(cmd_str) | Value::SimpleString(cmd_str) => {
+                        let cmd_upper = cmd_str.to_ascii_uppercase();
+
+                        match cmd_upper.as_str() {
+                            "PING" => "+PONG\r\n".to_string(),
+                            "ECHO" => {
+                                if elements.len() < 2 {
+                                    return "-ERR ECHO braucht ein Argument\r\n".to_string();
+                                }
+                                match &elements[1] {
+                                    Value::BulkString(arg) => {
+                                        format!("${}\r\n{}\r\n", arg.len(), arg)
+                                    }
+                                    _ => "-ERR ECHO erwartet eine BulkString-Argument\r\n"
+                                        .to_string(),
+                                }
+                            }
+                            other => {
+                                // Unbekanntes Kommando
+                                format!("-ERR Unbekanntes Kommando: {}\r\n", other)
+                            }
+                        }
+                    }
+                    _ => "-ERR Erstes Array-Element muss der Befehl sein\r\n".to_string(),
+                }
             }
 
-            let message = args.join(" ");
-            Some(format!("${}\r\n{}\r\n", message.len(), message))
+            Value::SimpleString(s) => {
+                format!("+Hallo, du hast '{}' geschickt\r\n", s)
+            }
+            Value::BulkString(s) => {
+                format!("+BulkString: {}\r\n", s)
+            }
+            Value::Integer(i) => {
+                format!("+Integer: {}\r\n", i)
+            }
+            _ => "-ERR Nicht unterstütztes Format\r\n".to_string(),
+        },
+        Err(e) => {
+            eprintln!("Parsing error: {:?}", e);
+            "-ERR Ungültiges RESP\r\n".to_string()
         }
-        _ => None,
     }
 }
